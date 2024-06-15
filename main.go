@@ -136,10 +136,13 @@ func parseTotalTimeToMinutes(total string) (int, error) {
 }
 
 func calculatePayment(totalWorkMinutes int, vendor string) float64 {
-	hourlyPay := 1600.0 / 60
+	hourlyPay := 1500.0 / 60
 	extraTimePay := 1.5 * hourlyPay
 	if vendor == "Dania Hidalgo" {
 		hourlyPay = 1500.0 / 60 // Hourly pay converted to pay per minute
+	}
+	if vendor == "Josue Urena" {
+		hourlyPay = 2300.0 / 60 // Hourly pay converted to pay per minute
 	}
 	if vendor == "Marjorie" {
 		extraTimePay = hourlyPay
