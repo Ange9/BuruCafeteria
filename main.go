@@ -11,7 +11,7 @@ import (
 )
 
 type Record struct {
-	Vendor    string
+	//colaborador string
 	EntryTime time.Time
 	ExitTime  time.Time
 	TotalWork time.Duration
@@ -63,14 +63,21 @@ func processFile(filename string) error {
 	personWorkData := make(map[string]int)        // Map to store total work minutes per person
 	personPaymentData := make(map[string]float64) // Map to store total payment per person
 
+	totalTiempoLaboradoAll := 0
 	// Parse records
 	for i, row := range records {
 		if len(row) >= 4 && i != len(records)-1 {
 			if i == 0 {
 				continue
 			}
-			vendor := row[0]
+			colaborador := row[0]
 			entryTime, _ := time.Parse("2/1/2006 15:04", row[1])
+			//fmt.Println("entryTime:", entryTime)
+
+			formattedDate := entryTime.Format("2006-01-02")
+			// Print the formatted date
+			//fmt.Println("Date:", formattedDate)
+
 			total := row[3]
 
 			totalWorkDayMinutes, err := parseTotalTimeToMinutes(total)
@@ -80,30 +87,60 @@ func processFile(filename string) error {
 			}
 
 			// Subtract 60 minutes for lunch break
-			totalWorkDayMinutes -= 60
+			if colaborador != "Nayiry" {
+				totalWorkDayMinutes -= 60
+			}
+			isHoliday := 0
+			if formattedDate == "2024-08-99" {
+				isHoliday = 1
+			}
 
 			// Calculate payment for the day
-			payment := calculatePayment(totalWorkDayMinutes, vendor)
+			payment := calculatePayment(totalWorkDayMinutes, colaborador, isHoliday)
 
 			// Output individual record result
-			fmt.Printf("Archivo: %s, Nombre: %s, Fecha: %s, Pago: $%.2f\n", filename, vendor, entryTime.Format("2006-01-02"), payment)
+			fmt.Printf("Archivo: %s, Nombre: %s, Fecha: %s, Pago: $%.2f, Holiday: $%b\n", filename, colaborador, entryTime.Format("2006-01-02"), payment, isHoliday)
 
 			// Aggregate total work time and payment per person
-			personWorkData[vendor] += totalWorkDayMinutes
-			personPaymentData[vendor] += payment
+			personWorkData[colaborador] += totalWorkDayMinutes
+			personPaymentData[colaborador] += payment
 		}
 	}
 
 	// Output total work time and payment for each person
-	for vendor, totalWorkMinutes := range personWorkData {
-		totalPayment := personPaymentData[vendor]
+
+	for colaborador, totalWorkMinutes := range personWorkData {
+		totalPayment := personPaymentData[colaborador]
 		totalHours := totalWorkMinutes / 60
 		totalMinutes := totalWorkMinutes % 60
-		fmt.Printf("Archivo: %s, Nombre: %s, Total tiempo laborado: %dh %dm, Total a pagar: $%.2f\n", filename, vendor, totalHours, totalMinutes, totalPayment)
+		fmt.Println("------------------------------------------------------------------------")
+
+		if colaborador == "Magally Loaiza" {
+			totalPayment += (10000 + 26000)
+			fmt.Printf("Archivo: %s, Nombre: %s, Total tiempo laborado + pasajes + 10 porc: %dh %dm, Total a pagar: $%.2f\n", filename, colaborador, totalHours, totalMinutes, totalPayment)
+		}
+		if colaborador == "Dania Hidalgo" {
+			totalPayment += 20000
+			fmt.Printf("Archivo: %s, Nombre: %s, Total tiempo laborado + 10 por: %dh %dm, Total a pagar: $%.2f\n", filename, colaborador, totalHours, totalMinutes, totalPayment)
+		}
+		if colaborador == "Nayiry" {
+			totalPayment += 23000
+			fmt.Printf("Archivo: %s, Nombre: %s, Total tiempo laborado + 10 porc: %dh %dm, Total a pagar: $%.2f\n", filename, colaborador, totalHours, totalMinutes, totalPayment)
+		}
+		if colaborador == "Génesis" {
+			totalPayment += 14000
+			fmt.Printf("Archivo: %s, Nombre: %s, Total tiempo laborado + 10 porc: %dh %dm, Total a pagar: $%.2f\n", filename, colaborador, totalHours, totalMinutes, totalPayment)
+		}
+		totalTiempoLaboradoAll += totalHours
 
 		// Add to overall total payment
 		overallTotalPayment += totalPayment
+		//fmt.Printf("Porcentaje Tiempo Laborado %dh\n", porc)
 	}
+
+	//porc := (totalHours * 100) / totalTiempoLaboradoAll
+
+	fmt.Printf("Total Tiempo Laborado All %dh\n", totalTiempoLaboradoAll)
 
 	return nil
 }
@@ -135,16 +172,30 @@ func parseTotalTimeToMinutes(total string) (int, error) {
 	return hours*60 + minutes, nil
 }
 
-func calculatePayment(totalWorkMinutes int, vendor string) float64 {
-	hourlyPay := 1500.0 / 60
+func calculatePayment(totalWorkMinutes int, colaborador string, isHoliday int) float64 {
+	rate := 0.0
+	hourlyPay := 0.0
+	if colaborador == "Magally Loaiza" {
+		rate = 1600
+	}
+	if colaborador == "Dania Hidalgo" {
+		rate = 1500
+	}
+	if colaborador == "Nayiry" {
+		rate = 1910
+	}
+	if colaborador == "Génesis" {
+		rate = 1600
+	}
+	hourlyPay = rate / 60
 	extraTimePay := 1.5 * hourlyPay
-	if vendor == "Dania Hidalgo" {
-		hourlyPay = 1500.0 / 60 // Hourly pay converted to pay per minute
+
+	if isHoliday == 1 {
+		hourlyPay = (rate * 2) / 60
+		extraTimePay = 1.5 * hourlyPay
 	}
-	if vendor == "Josue Urena" {
-		hourlyPay = 2300.0 / 60 // Hourly pay converted to pay per minute
-	}
-	if vendor == "Marjorie" {
+
+	if colaborador == "Génesis" {
 		extraTimePay = hourlyPay
 	}
 
