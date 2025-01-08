@@ -87,9 +87,9 @@ func processFile(filename string) error {
 			}
 
 			// Subtract 60 minutes for lunch break
-			if colaborador != "Nayiry" {
-				totalWorkDayMinutes -= 60
-			}
+			//if colaborador != "Nayiry" {
+			totalWorkDayMinutes -= 60
+			//}
 			isHoliday := 0
 			if formattedDate == "2024-08-99" {
 				isHoliday = 1
@@ -113,6 +113,7 @@ func processFile(filename string) error {
 		totalPayment := personPaymentData[colaborador]
 		totalHours := totalWorkMinutes / 60
 		totalMinutes := totalWorkMinutes % 60
+		rebajo := 0.0
 		fmt.Println("------------------------------------------------------------------------")
 
 		if colaborador == "Magally Loaiza" {
@@ -120,15 +121,27 @@ func processFile(filename string) error {
 			fmt.Printf("Archivo: %s, Nombre: %s, Total tiempo laborado + pasajes + 10 porc: %dh %dm, Total a pagar: $%.2f\n", filename, colaborador, totalHours, totalMinutes, totalPayment)
 		}
 		if colaborador == "Dania Hidalgo" {
+			rebajo = 5000
 			totalPayment += 20000
-			fmt.Printf("Archivo: %s, Nombre: %s, Total tiempo laborado + 10 por: %dh %dm, Total a pagar: $%.2f\n", filename, colaborador, totalHours, totalMinutes, totalPayment)
+			totalPayment -= rebajo
+
+			fmt.Printf("Archivo: %s, Nombre: %s, Total tiempo laborado + 10 por: %dh %dm,  CCSS:%.2f Total a pagar: $%.2f\n", filename, colaborador, totalHours, totalMinutes, rebajo, totalPayment)
 		}
 		if colaborador == "Nayiry" {
-			totalPayment += 23000
-			fmt.Printf("Archivo: %s, Nombre: %s, Total tiempo laborado + 10 porc: %dh %dm, Total a pagar: $%.2f\n", filename, colaborador, totalHours, totalMinutes, totalPayment)
+			rebajo = 50265
+			totalPayment += 21000
+			totalPayment -= rebajo
+
+			fmt.Printf("Archivo: %s, Nombre: %s, Total tiempo laborado + 10 por: %dh %dm,  CCSS:%.2f Total a pagar: $%.2f\n", filename, colaborador, totalHours, totalMinutes, rebajo, totalPayment)
 		}
 		if colaborador == "Génesis" {
-			totalPayment += 14000
+			totalPayment += 9000
+
+			fmt.Printf("Archivo: %s, Nombre: %s, Total tiempo laborado + 10 porc: %dh %dm, Total a pagar: $%.2f\n", filename, colaborador, totalHours, totalMinutes, totalPayment)
+		}
+		if colaborador == "Vero" {
+			totalPayment += 11000
+
 			fmt.Printf("Archivo: %s, Nombre: %s, Total tiempo laborado + 10 porc: %dh %dm, Total a pagar: $%.2f\n", filename, colaborador, totalHours, totalMinutes, totalPayment)
 		}
 		totalTiempoLaboradoAll += totalHours
@@ -179,30 +192,34 @@ func calculatePayment(totalWorkMinutes int, colaborador string, isHoliday int) f
 		rate = 1600
 	}
 	if colaborador == "Dania Hidalgo" {
-		rate = 1500
+		rate = 1600
 	}
 	if colaborador == "Nayiry" {
-		rate = 1910
+		rate = 3125
 	}
 	if colaborador == "Génesis" {
 		rate = 1600
 	}
+	if colaborador == "Génesis" {
+		rate = 1300
+	}
 	hourlyPay = rate / 60
-	extraTimePay := 1.5 * hourlyPay
+	extraTimePay := hourlyPay
+	if colaborador == "Magally Loaiza" {
+		extraTimePay = 1.5 * hourlyPay
+	}
 
 	if isHoliday == 1 {
 		hourlyPay = (rate * 2) / 60
 		extraTimePay = 1.5 * hourlyPay
 	}
 
-	if colaborador == "Génesis" {
-		extraTimePay = hourlyPay
-	}
-
 	// Calculate payment
 	if totalWorkMinutes > 8*60 {
 		// Calculate extra time payment
 		extraMinutes := totalWorkMinutes - 8*60
+		//fmt.Println("Extra min", "colaborador", colaborador, extraMinutes)
+
 		return 8*60*hourlyPay + float64(extraMinutes)*extraTimePay
 	}
 	return float64(totalWorkMinutes) * hourlyPay
