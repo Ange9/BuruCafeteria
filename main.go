@@ -18,8 +18,30 @@ type Record struct {
 
 var overallTotalPayment float64 // Global variable to track total payment across all files
 
+// Define CCSS deductions per person
+var ccssDeductions = map[string]float64{
+	"Dani":     10000,
+	"Nayi":     10000,
+	"Vero":     0,
+	"Leidy":    0,
+	"Sirlenny": 0,
+	"Jose":     0,
+	"Graciela": 0,
+}
+
 func main() {
-	// Use filepath.Glob to match files with the naming pattern "Report_1_*.csv"
+	if len(os.Args) < 2 {
+		fmt.Println("Uso: go run main.go <monto_servicio>")
+		return
+	}
+
+	serviceAmountStr := os.Args[1]
+	serviceAmount, err := strconv.ParseFloat(serviceAmountStr, 64)
+	if err != nil {
+		fmt.Println("Error: el monto de servicio debe ser un número")
+		return
+	}
+
 	files, err := filepath.Glob("Report*.csv")
 	if err != nil {
 		fmt.Println("Error getting files:", err)
@@ -31,39 +53,35 @@ func main() {
 		return
 	}
 
-	// Process each file
 	for _, file := range files {
-		err := processFile(file)
+		err := processFile(file, serviceAmount)
 		if err != nil {
 			fmt.Printf("Error processing file %s: %v\n", file, err)
 		}
 	}
 
-	// Output the overall total payment
 	fmt.Printf("Total a pagar para todos los archivos: $%.2f\n", overallTotalPayment)
 }
 
-func processFile(filename string) error {
-	// Open the CSV file
+func processFile(filename string, serviceAmount float64) error {
 	file, err := os.Open(filename)
 	if err != nil {
 		return fmt.Errorf("error opening file: %w", err)
 	}
 	defer file.Close()
 
-	// Parse the CSV file with pipe as delimiter
 	reader := csv.NewReader(file)
-	reader.Comma = '|' // Set the delimiter to pipe
+	reader.Comma = '|'
 	records, err := reader.ReadAll()
 	if err != nil {
 		return fmt.Errorf("error reading CSV: %w", err)
 	}
 
-	personWorkData := make(map[string]int)        // Map to store total work minutes per person
-	personPaymentData := make(map[string]float64) // Map to store total payment per person
+	personWorkData := make(map[string]int)
+	personPaymentData := make(map[string]float64)
 
 	totalTiempoLaboradoAll := 0
-	// Parse records
+
 	for i, row := range records {
 		if len(row) >= 4 && i != len(records)-1 {
 			if i == 0 {
@@ -71,9 +89,7 @@ func processFile(filename string) error {
 			}
 			colaborador := row[0]
 			entryTime, _ := time.Parse("2/1/2006 15:04", row[1])
-
 			formattedDate := entryTime.Format("2006-01-02")
-
 			total := row[3]
 
 			totalWorkDayMinutes, err := parseTotalTimeToMinutes(total)
@@ -82,88 +98,53 @@ func processFile(filename string) error {
 				continue
 			}
 
-			// Subtract 60 minutes for lunch break (adjust as needed)
-			totalWorkDayMinutes -= 0
-
 			isHoliday := 0
-			if formattedDate == "2025-05-01" { // Example holiday date, adjust if needed
+			if formattedDate == "2025-05-01" {
 				isHoliday = 1
 			}
 
-			// Calculate payment for the day
 			payment := calculatePayment(totalWorkDayMinutes, colaborador, isHoliday)
 
-			// Output individual record result
-			fmt.Printf("Archivo: %s, Nombre: %s, Fecha: %s, Pago: $%.2f, Holiday: $%b\n", filename, colaborador, entryTime.Format("2006-01-02"), payment, isHoliday)
+			fmt.Printf("Archivo: %s, Nombre: %s, Fecha: %s, Pago: $%.2f, Holiday: %b\n",
+				filename, colaborador, entryTime.Format("2006-01-02"), payment, isHoliday)
 
-			// Aggregate total work time and payment per person
 			personWorkData[colaborador] += totalWorkDayMinutes
 			personPaymentData[colaborador] += payment
 		}
 	}
 
-	// Output total work time and payment for each person
-	for colaborador, totalWorkMinutes := range personWorkData {
-		totalPayment := personPaymentData[colaborador]
-		totalHours := totalWorkMinutes / 60
-		totalMinutes := totalWorkMinutes % 60
-		rebajo := 0.0
-		servicio := 0.0
-
-		fmt.Println("------------------------------------------------------------------------")
-
-		if colaborador == "Dani" {
-			fmt.Printf("Archivo: %s, Nombre: %s\n", filename, colaborador)
-			fmt.Printf("Total tiempo laborado: %dh %dm\n", totalHours, totalMinutes)
-			fmt.Printf("Subtotal: $%.2f\n", totalPayment)
-			rebajo = 0
-			fmt.Printf("- CCSS:%.2f\n", rebajo)
-			servicio = 36000
-			fmt.Printf("+ Impuesto servicio:%.2f\n", servicio)
-			totalPayment += servicio
-			totalPayment -= rebajo
-			fmt.Printf("Total a pagar: $%.2f\n", totalPayment)
-		}
-		if colaborador == "Nayi" {
-			fmt.Printf("Archivo: %s, Nombre: %s\n", filename, colaborador)
-			fmt.Printf("Total tiempo laborado: %dh %dm\n", totalHours, totalMinutes)
-			fmt.Printf("Subtotal: $%.2f\n", totalPayment)
-			rebajo = 0
-			fmt.Printf("- CCSS:%.2f\n", rebajo)
-			servicio = 30000
-			fmt.Printf("+ Impuesto servicio:%.2f\n", servicio)
-			totalPayment += servicio
-			totalPayment -= rebajo
-			fmt.Printf("Total a pagar: $%.2f\n", totalPayment)
-		}
-		if colaborador == "Leidy" {
-			fmt.Printf("Archivo: %s, Nombre: %s\n", filename, colaborador)
-			fmt.Printf("Total tiempo laborado: %dh %dm\n", totalHours, totalMinutes)
-			fmt.Printf("Subtotal: $%.2f\n", totalPayment)
-			totalPayment := totalPayment + 28000
-			fmt.Printf("Total a pagar: $%.2f\n", totalPayment)
-		}
-		if colaborador == "Sirlenny" {
-			fmt.Printf("Archivo: %s, Nombre: %s\n", filename, colaborador)
-			fmt.Printf("Total tiempo laborado: %dh %dm\n", totalHours, totalMinutes)
-			fmt.Printf("Subtotal: $%.2f\n", totalPayment)
-			rebajo = 0
-			fmt.Printf("- CCSS:%.2f\n", rebajo)
-			servicio = 27000
-			fmt.Printf("+ Impuesto servicio:%.2f\n", servicio)
-			totalPayment += servicio
-			totalPayment -= rebajo
-			fmt.Printf("Total a pagar: $%.2f\n", totalPayment)
-		}
-		totalTiempoLaboradoAll += totalHours
-
-		// Add to overall total payment
-		overallTotalPayment += totalPayment
+	totalMinutesWorkedAll := 0
+	for _, minutes := range personWorkData {
+		totalMinutesWorkedAll += minutes
 	}
 
-	// Print total time worked for all people combined
-	fmt.Printf("Total Tiempo Laborado All %dh\n", totalTiempoLaboradoAll)
+	for colaborador, totalWorkMinutes := range personWorkData {
+		basePayment := personPaymentData[colaborador]
+		totalHours := totalWorkMinutes / 60
+		totalMinutes := totalWorkMinutes % 60
 
+		proportionalService := 0.0
+		if totalMinutesWorkedAll > 0 {
+			proportionalService = (float64(totalWorkMinutes) / float64(totalMinutesWorkedAll)) * serviceAmount
+		}
+
+		ccss := ccssDeductions[colaborador]
+
+		fmt.Println("------------------------------------------------------------------------")
+		fmt.Printf("Archivo: %s, Nombre: %s\n", filename, colaborador)
+		fmt.Printf("Total tiempo laborado: %dh %dm\n", totalHours, totalMinutes)
+		fmt.Printf("Subtotal: $%.2f\n", basePayment)
+		fmt.Printf("+ Servicio: $%.2f\n", proportionalService)
+		fmt.Printf("- CCSS: $%.2f\n", ccss)
+
+		totalPayment := basePayment + proportionalService - ccss
+		fmt.Printf("Total a pagar: $%.2f\n", totalPayment)
+
+		overallTotalPayment += totalPayment
+		totalTiempoLaboradoAll += totalHours
+	}
+
+	fmt.Printf("Total Tiempo Laborado All %dh\n", totalTiempoLaboradoAll)
 	return nil
 }
 
@@ -191,17 +172,17 @@ func parseTotalTimeToMinutes(total string) (int, error) {
 		}
 	}
 
-	fmt.Printf("Parsing Time: %s = %d hours, %d minutes\n", total, hours, minutes) // Debugging line
+	fmt.Printf("Parsing Time: %s = %d hours, %d minutes\n", total, hours, minutes)
 	return hours*60 + minutes, nil
 }
 
 func calculatePayment(totalWorkMinutes int, colaborador string, isHoliday int) float64 {
 	rate := 0.0
 	hourlyPay := 0.0
-	if colaborador == "Dania Hidalgo" {
+	if colaborador == "Dani" {
 		rate = 1600
 	}
-	if colaborador == "Nayiry" {
+	if colaborador == "Nayi" {
 		rate = 3125
 	}
 	if colaborador == "Vero" {
@@ -213,6 +194,12 @@ func calculatePayment(totalWorkMinutes int, colaborador string, isHoliday int) f
 	if colaborador == "Sirlenny" {
 		rate = 1800
 	}
+	if colaborador == "Jose" {
+		rate = 2000
+	}
+	if colaborador == "Graciela" {
+		rate = 2000
+	}
 	hourlyPay = rate / 60
 	extraTimePay := hourlyPay
 
@@ -221,9 +208,7 @@ func calculatePayment(totalWorkMinutes int, colaborador string, isHoliday int) f
 		extraTimePay = 1.5 * hourlyPay
 	}
 
-	// Calculate payment
 	if totalWorkMinutes > 8*60 {
-		// Calculate extra time payment
 		extraMinutes := totalWorkMinutes - 8*60
 		return 8*60*hourlyPay + float64(extraMinutes)*extraTimePay
 	}
