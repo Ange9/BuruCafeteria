@@ -272,6 +272,8 @@ func calculatePayment(totalWorkMinutes int, colaborador string, isHoliday int) f
 
 // Show a simple ASCII bar graph of hours per worker per day, including entry/exit and next entry/exit for the same day
 
+// ...existing code...
+
 func showBarGraph() {
 	fmt.Println("\nResumen de horas trabajadas y descansos por día (por colaborador):")
 	fmt.Println("-------------------------------------------------------------------")
@@ -288,36 +290,35 @@ func showBarGraph() {
 		for _, date := range dates {
 			hours := days[date]
 			breakMin := breaksPerWorkerPerDay[colaborador][date]
-			bar := strings.Repeat("█", int(hours+0.5)) // 1 block per hour
+			// bar := strings.Repeat("█", int(hours+0.5)) // 1 block per hour
 
 			// Get sessions for this worker and date
 			sessions := sessionsFor(colaborador, date)
 			// ...existing code...
-			// ...existing code...
-			sessionStrs := []string{}
-			if len(sessions) == 1 {
-				// Only one session, print it
-				entry := sessions[0].entry.Format("03:04 PM")
-				exit := sessions[0].exit.Format("03:04 PM")
-				sessionStrs = append(sessionStrs, fmt.Sprintf("Entrada: %s Salida: %s", entry, exit))
-			} else {
-				// For multiple sessions, print each with its next, except the last
-				for i := 0; i < len(sessions)-1; i++ {
-					entry := sessions[i].entry.Format("03:04 PM")
-					exit := sessions[i].exit.Format("03:04 PM")
-					nextEntry := sessions[i+1].entry.Format("03:04 PM")
-					nextExit := sessions[i+1].exit.Format("03:04 PM")
-					sessionStrs = append(sessionStrs, fmt.Sprintf("Entrada: %s Salida: %s | Entrada: %s Salida: %s", entry, exit, nextEntry, nextExit))
+			sessionStr := ""
+			if len(sessions) > 0 {
+				// First entry and exit
+				sessionStr += fmt.Sprintf("Entrada: %s | Salida: %s", sessions[0].entry.Format("03:04 PM"), sessions[0].exit.Format("03:04 PM"))
+				for i := 1; i < len(sessions); i++ {
+					// Break between previous exit and current entry
+					// breakDuration := sessions[i].entry.Sub(sessions[i-1].exit)
+					// breakMin := int(breakDuration.Minutes())
+					// if breakMin > 0 {
+					// 	// sessionStr += fmt.Sprintf(" | Descanso: %d min", breakMin)
+					// }
+					// Next entry and exit
+					sessionStr += fmt.Sprintf(" | Entrada: %s | Salida: %s", sessions[i].entry.Format("03:04 PM"), sessions[i].exit.Format("03:04 PM"))
 				}
-				// Do NOT print the last session by itself
 			}
-			sessionsJoined := strings.Join(sessionStrs, " || ")
+			// ...existing code...
 
-			fmt.Printf("  %s | %5.2f h | %s | Descanso: %2.0f min | %s\n", date, hours, bar, breakMin, sessionsJoined)
+			fmt.Printf("  %s | %5.2f h  | Descanso total: %2.0f min | %s\n", date, hours, breakMin, sessionStr)
 		}
 		fmt.Println()
 	}
 }
+
+// ...existing code...
 
 // Helper to get sessions for a worker and date
 func sessionsFor(worker, date string) []struct{ entry, exit time.Time } {
