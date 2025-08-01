@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/csv"
 	"fmt"
 	"os"
@@ -55,16 +56,29 @@ var overallTotalPayment float64 // Global variable to track total payment across
 var hoursPerWorkerPerDay = make(map[string]map[string]float64)
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Uso: go run main.go <monto_servicio>")
-		return
-	}
+	reader := bufio.NewReader(os.Stdin)
 
-	serviceAmountStr := os.Args[1]
+	// Input "monto de servicio"
+	fmt.Print("Ingrese el monto total de servicio a repartir: ")
+	serviceAmountStr, _ := reader.ReadString('\n')
+	serviceAmountStr = strings.TrimSpace(serviceAmountStr)
 	serviceAmount, err := strconv.ParseFloat(serviceAmountStr, 64)
 	if err != nil {
 		fmt.Println("Error: el monto de servicio debe ser un número")
 		return
+	}
+
+	// Input vacation days for each employee
+	for i := range employees {
+		fmt.Printf("Ingrese días de vacaciones para %s (actual: %d): ", employees[i].Name, employees[i].VacationDays)
+		vacStr, _ := reader.ReadString('\n')
+		vacStr = strings.TrimSpace(vacStr)
+		if vacStr != "" {
+			vacDays, err := strconv.Atoi(vacStr)
+			if err == nil {
+				employees[i].VacationDays = vacDays
+			}
+		}
 	}
 
 	files, err := filepath.Glob("Report*.csv")
