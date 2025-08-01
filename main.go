@@ -349,34 +349,29 @@ func showBarGraphAndPayments(serviceAmount float64) {
 		}
 
 		// Payment summary for this employee
-		totalPayMinutes := totalMinutes + vacMinutes
 
-		// Apply 1.5x rate for minutes after 96 hours (5760 min)
-		normalMinutes := totalPayMinutes
-		extraMinutes := 0
-		if totalPayMinutes > 96*60 {
-			normalMinutes = 96 * 60
-			extraMinutes = totalPayMinutes - normalMinutes
+		// Only worked minutes count towards extra time (vacation is always paid at normal rate)
+		workedNormalMinutes := totalMinutes
+		workedExtraMinutes := 0
+		if totalMinutes > 96*60 {
+			workedNormalMinutes = 96 * 60
+			workedExtraMinutes = totalMinutes - workedNormalMinutes
 		}
+
+		// Vacation minutes are always normal rate
+		vacationNormalMinutes := vacMinutes
 
 		// Convert minutes to hours for display
-		normalHours := float64(normalMinutes) / 60.0
-		extraHours := float64(extraMinutes) / 60.0
+		normalHours := float64(workedNormalMinutes+vacationNormalMinutes) / 60.0
+		extraHours := float64(workedExtraMinutes) / 60.0
 
 		rate := employeeRates[colaborador]
-		normalPay := float64(normalMinutes) * rate / 60
-		extraPay := float64(extraMinutes) * rate / 60 * 1.5
-		basePayment := normalPay + extraPay
+		normalPay := float64(workedNormalMinutes+vacationNormalMinutes) * rate / 60
+		extraPay := float64(workedExtraMinutes) * rate / 60 * 1.5
 
 		// Split worked and vacation amounts for display
-		workedPay := 0.0
-		vacationPay := 0.0
-		if totalPayMinutes > 0 {
-			workedRatio := float64(totalMinutes) / float64(totalPayMinutes)
-			vacationRatio := float64(vacMinutes) / float64(totalPayMinutes)
-			workedPay = basePayment * workedRatio
-			vacationPay = basePayment * vacationRatio
-		}
+		workedPay := float64(workedNormalMinutes)*rate/60 + float64(workedExtraMinutes)*rate/60*1.5
+		vacationPay := float64(vacationNormalMinutes) * rate / 60
 
 		ccss := ccssDeductions[colaborador]
 
@@ -388,15 +383,14 @@ func showBarGraphAndPayments(serviceAmount float64) {
 		}
 		totalPayment := workedPay + vacationPay + proportionalService - ccss
 
-		fmt.Printf("  Tiempo normal: %.2f h | Monto normal: $%.2f\n", normalHours, normalPay)
-		fmt.Printf("  Tiempo extra:  %.2f h | Monto extra:  $%.2f\n", extraHours, extraPay)
-
 		if vacDays > 0 {
 			fmt.Printf("  Monto por días trabajados: $%.2f\n", workedPay)
 			fmt.Printf("  Monto por vacaciones:      $%.2f\n", vacationPay)
 		} else {
 			fmt.Printf("  Monto por días trabajados: $%.2f\n", workedPay)
 		}
+		fmt.Printf("  Tiempo normal: %.2f h | Monto normal: $%.2f\n", normalHours, normalPay)
+		fmt.Printf("  Tiempo extra:  %.2f h | Monto extra:  $%.2f\n", extraHours, extraPay)
 		fmt.Printf("  Servicio: $%.2f | CCSS: $%.2f | TOTAL: $%.2f\n\n",
 			proportionalService, ccss, totalPayment)
 	}
