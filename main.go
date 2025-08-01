@@ -292,22 +292,24 @@ func showBarGraph() {
 
 			// Get sessions for this worker and date
 			sessions := sessionsFor(colaborador, date)
+			// ...existing code...
+			// ...existing code...
 			sessionStrs := []string{}
-			for i, s := range sessions {
-				// If only one session, print it
-				if len(sessions) == 1 {
-					entry := s.entry.Format("03:04 PM")
-					exit := s.exit.Format("03:04 PM")
-					sessionStrs = append(sessionStrs, fmt.Sprintf("Entry: %s Exit: %s", entry, exit))
-				} else if i < len(sessions)-1 {
-					// For all but the last session, print with next entry/exit
-					entry := s.entry.Format("03:04 PM")
-					exit := s.exit.Format("03:04 PM")
+			if len(sessions) == 1 {
+				// Only one session, print it
+				entry := sessions[0].entry.Format("03:04 PM")
+				exit := sessions[0].exit.Format("03:04 PM")
+				sessionStrs = append(sessionStrs, fmt.Sprintf("Entrada: %s Salida: %s", entry, exit))
+			} else {
+				// For multiple sessions, print each with its next, except the last
+				for i := 0; i < len(sessions)-1; i++ {
+					entry := sessions[i].entry.Format("03:04 PM")
+					exit := sessions[i].exit.Format("03:04 PM")
 					nextEntry := sessions[i+1].entry.Format("03:04 PM")
 					nextExit := sessions[i+1].exit.Format("03:04 PM")
 					sessionStrs = append(sessionStrs, fmt.Sprintf("Entrada: %s Salida: %s | Entrada: %s Salida: %s", entry, exit, nextEntry, nextExit))
 				}
-				// Do not print the last session again
+				// Do NOT print the last session by itself
 			}
 			sessionsJoined := strings.Join(sessionStrs, " || ")
 
