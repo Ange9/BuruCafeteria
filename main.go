@@ -24,8 +24,8 @@ type Employee struct {
 
 // Define employees with their rates and CCSS deductions
 var employees = []Employee{
-	{Name: "Dani", Rate: 1800, CCSS: 0},
-	{Name: "Nayi", Rate: 3125, CCSS: 0},
+	{Name: "Dani", Rate: 1800, CCSS: 10000},
+	{Name: "Nayi", Rate: 3125, CCSS: 10000},
 	{Name: "Vero", Rate: 1300, CCSS: 0},
 	{Name: "Leidy", Rate: 2000, CCSS: 0},
 	{Name: "Jose", Rate: 2000, CCSS: 0},
