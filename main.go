@@ -322,7 +322,11 @@ func showBarGraphAndPayments(serviceAmount float64) {
 			if len(sessions) > 0 {
 				sessionStr += fmt.Sprintf("Entrada: %s | Salida: %s", sessions[0].entry.Format("03:04 PM"), sessions[0].exit.Format("03:04 PM"))
 				for i := 1; i < len(sessions); i++ {
-
+					breakDuration := sessions[i].entry.Sub(sessions[i-1].exit)
+					breakMin := int(breakDuration.Minutes())
+					if breakMin > 0 {
+						sessionStr += fmt.Sprintf(" | Descanso: %d min", breakMin)
+					}
 					sessionStr += fmt.Sprintf(" | Entrada: %s | Salida: %s", sessions[i].entry.Format("03:04 PM"), sessions[i].exit.Format("03:04 PM"))
 				}
 			}
@@ -330,7 +334,6 @@ func showBarGraphAndPayments(serviceAmount float64) {
 			fmt.Printf("  %s | %6.2f h  | Descanso total: %2.0f min | %s\n", date, hours, breakMin, sessionStr)
 		}
 
-		// Vacation calculation
 		// Vacation calculation
 		empObj := getEmployeeByName(colaborador)
 		vacDays := 0
@@ -347,13 +350,31 @@ func showBarGraphAndPayments(serviceAmount float64) {
 
 		// Payment summary for this employee
 		// Calculate payment for worked minutes and vacation minutes separately
-		baseMinutes := totalMinutes
-		vacationAmount := 0.0
-		if vacDays > 0 {
-			vacationAmount = calculatePayment(vacMinutes, colaborador, 0)
-			baseMinutes += vacMinutes
+		totalPayMinutes := totalMinutes + vacMinutes
+
+		// Apply 1.5x rate for minutes after 96 hours (5760 min)
+		normalMinutes := totalPayMinutes
+		extraMinutes := 0
+		if totalPayMinutes > 96*60 {
+			normalMinutes = 96 * 60
+			extraMinutes = totalPayMinutes - normalMinutes
 		}
-		workedAmount := calculatePayment(totalMinutes, colaborador, 0)
+
+		rate := employeeRates[colaborador]
+		normalPay := float64(normalMinutes) * rate / 60
+		extraPay := float64(extraMinutes) * rate / 60 * 1.5
+		basePayment := normalPay + extraPay
+
+		// Split worked and vacation amounts for display
+		workedPay := 0.0
+		vacationPay := 0.0
+		if totalPayMinutes > 0 {
+			workedRatio := float64(totalMinutes) / float64(totalPayMinutes)
+			vacationRatio := float64(vacMinutes) / float64(totalPayMinutes)
+			workedPay = basePayment * workedRatio
+			vacationPay = basePayment * vacationRatio
+		}
+
 		ccss := ccssDeductions[colaborador]
 
 		// Service is only for worked minutes (not vacation)
@@ -362,21 +383,19 @@ func showBarGraphAndPayments(serviceAmount float64) {
 		if totalMinutesWorkedAll > 0 {
 			proportionalService = (float64(serviceMinutes) / float64(totalMinutesWorkedAll)) * serviceAmount
 		}
-		totalPayment := workedAmount + vacationAmount + proportionalService - ccss
+		totalPayment := workedPay + vacationPay + proportionalService - ccss
 
 		if vacDays > 0 {
-			fmt.Printf("  Monto por días trabajados: $%.2f\n", workedAmount)
-			fmt.Printf("  Monto por vacaciones:      $%.2f\n", vacationAmount)
+			fmt.Printf("  Monto por días trabajados: $%.2f\n", workedPay)
+			fmt.Printf("  Monto por vacaciones:      $%.2f\n", vacationPay)
 		} else {
-			fmt.Printf("  Monto por días trabajados: $%.2f\n", workedAmount)
+			fmt.Printf("  Monto por días trabajados: $%.2f\n", workedPay)
 		}
 		fmt.Printf("  Servicio: $%.2f | CCSS: $%.2f | TOTAL: $%.2f\n\n",
 			proportionalService, ccss, totalPayment)
-
 	}
 }
 
-// Helper to get Employee struct by name
 func getEmployeeByName(name string) *Employee {
 	for i := range employees {
 		if employees[i].Name == name {
