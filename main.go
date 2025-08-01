@@ -28,7 +28,7 @@ type Employee struct {
 
 // Define employees with their rates and CCSS deductions
 var employees = []Employee{
-	{Name: "Dani", Rate: 1800, CCSS: 10000, VacationDays: 9},
+	{Name: "Dani", Rate: 1800, CCSS: 10000, VacationDays: 0},
 	{Name: "Nayi", Rate: 3125, CCSS: 10000, VacationDays: 0},
 	{Name: "Vero", Rate: 1300, CCSS: 0, VacationDays: 0},
 	{Name: "Leidy", Rate: 2000, CCSS: 0, VacationDays: 0},
@@ -68,6 +68,22 @@ func main() {
 		return
 	}
 
+	// Ask for holidays
+	var holidays []string
+	fmt.Print("¿Hay días feriados? (s/n): ")
+	hasHolidayStr, _ := reader.ReadString('\n')
+	hasHolidayStr = strings.TrimSpace(strings.ToLower(hasHolidayStr))
+	if hasHolidayStr == "s" || hasHolidayStr == "si" {
+		fmt.Println("Ingrese los días feriados en formato YYYY-MM-DD, separados por coma (ejemplo: 2025-07-25,2025-08-02):")
+		holidaysStr, _ := reader.ReadString('\n')
+		holidaysStr = strings.TrimSpace(holidaysStr)
+		if holidaysStr != "" {
+			for _, h := range strings.Split(holidaysStr, ",") {
+				holidays = append(holidays, strings.TrimSpace(h))
+			}
+		}
+	}
+
 	// Input vacation days for each employee
 	for i := range employees {
 		fmt.Printf("Ingrese días de vacaciones para %s (actual: %d): ", employees[i].Name, employees[i].VacationDays)
@@ -93,7 +109,7 @@ func main() {
 	}
 
 	for _, file := range files {
-		err := processFile(file, serviceAmount)
+		err := processFileWithHolidays(file, serviceAmount, holidays)
 		if err != nil {
 			fmt.Printf("Error processing file %s: %v\n", file, err)
 		}
@@ -117,7 +133,7 @@ type session struct {
 // Map: worker -> date -> []session
 var sessionsPerWorkerPerDay = make(map[string]map[string][]session)
 
-func processFile(filename string, serviceAmount float64) error {
+func processFileWithHolidays(filename string, serviceAmount float64, holidays []string) error {
 	file, err := os.Open(filename)
 	if err != nil {
 		return fmt.Errorf("error opening file: %w", err)
@@ -168,15 +184,16 @@ func processFile(filename string, serviceAmount float64) error {
 			}
 			hoursPerWorkerPerDay[colaborador][formattedDate] += float64(totalWorkDayMinutes) / 60.0
 
+			// Check if this date is a holiday
 			isHoliday := 0
-			if formattedDate == "2025-07-25" {
-				isHoliday = 1
+			for _, h := range holidays {
+				if formattedDate == h {
+					isHoliday = 1
+					break
+				}
 			}
 
 			payment := calculatePayment(totalWorkDayMinutes, colaborador, isHoliday)
-
-			// fmt.Printf("Archivo: %s, Nombre: %s, Fecha: %s, Pago: $%.2f, Holiday: %b\n",
-			// 	filename, colaborador, entryTime.Format("2006-01-02"), payment, isHoliday)
 
 			personWorkData[colaborador] += totalWorkDayMinutes
 			personPaymentData[colaborador] += payment
@@ -213,7 +230,6 @@ func processFile(filename string, serviceAmount float64) error {
 	for colaborador, totalWorkMinutes := range personWorkData {
 		basePayment := personPaymentData[colaborador]
 		totalHours := totalWorkMinutes / 60
-		// totalMinutes := totalWorkMinutes % 60
 
 		proportionalService := 0.0
 		if totalMinutesWorkedAll > 0 {
