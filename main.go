@@ -16,18 +16,37 @@ type Record struct {
 	TotalWork time.Duration
 }
 
-var overallTotalPayment float64 // Global variable to track total payment across all files
-
-// Define CCSS deductions per person
-var ccssDeductions = map[string]float64{
-	"Dani":     10000,
-	"Nayi":     10000,
-	"Vero":     0,
-	"Leidy":    0,
-	"Sirlenny": 0,
-	"Jose":     0,
-	"Graciela": 0,
+type Employee struct {
+	Name string
+	Rate float64
+	CCSS float64
 }
+
+// Define employees with their rates and CCSS deductions
+var employees = []Employee{
+	{Name: "Dani", Rate: 1800, CCSS: 0},
+	{Name: "Nayi", Rate: 3125, CCSS: 0},
+	{Name: "Vero", Rate: 1300, CCSS: 0},
+	{Name: "Leidy", Rate: 2000, CCSS: 0},
+	{Name: "Jose", Rate: 2000, CCSS: 0},
+	{Name: "Graciela", Rate: 1800, CCSS: 0},
+	{Name: "Ana", Rate: 1800, CCSS: 0},
+	{Name: "Tatiana", Rate: 1800, CCSS: 0},
+	{Name: "Angelica", Rate: 1800, CCSS: 0},
+}
+
+// Helper maps for quick lookup
+var employeeRates = make(map[string]float64)
+var ccssDeductions = make(map[string]float64)
+
+func init() {
+	for _, emp := range employees {
+		employeeRates[emp.Name] = emp.Rate
+		ccssDeductions[emp.Name] = emp.CCSS
+	}
+}
+
+var overallTotalPayment float64 // Global variable to track total payment across all files
 
 func main() {
 	if len(os.Args) < 2 {
@@ -99,7 +118,7 @@ func processFile(filename string, serviceAmount float64) error {
 			}
 
 			isHoliday := 0
-			if formattedDate == "2025-05-01" {
+			if formattedDate == "2025-07-25" {
 				isHoliday = 1
 			}
 
@@ -177,30 +196,8 @@ func parseTotalTimeToMinutes(total string) (int, error) {
 }
 
 func calculatePayment(totalWorkMinutes int, colaborador string, isHoliday int) float64 {
-	rate := 0.0
-	hourlyPay := 0.0
-	if colaborador == "Dani" {
-		rate = 1600
-	}
-	if colaborador == "Nayi" {
-		rate = 3125
-	}
-	if colaborador == "Vero" {
-		rate = 1300
-	}
-	if colaborador == "Leidy" {
-		rate = 2000
-	}
-	if colaborador == "Sirlenny" {
-		rate = 1800
-	}
-	if colaborador == "Jose" {
-		rate = 2000
-	}
-	if colaborador == "Graciela" {
-		rate = 2000
-	}
-	hourlyPay = rate / 60
+	rate := employeeRates[colaborador]
+	hourlyPay := rate / 60
 	extraTimePay := hourlyPay
 
 	if isHoliday == 1 {
