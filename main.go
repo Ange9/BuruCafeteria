@@ -349,7 +349,6 @@ func showBarGraphAndPayments(serviceAmount float64) {
 		}
 
 		// Payment summary for this employee
-		// Calculate payment for worked minutes and vacation minutes separately
 		totalPayMinutes := totalMinutes + vacMinutes
 
 		// Apply 1.5x rate for minutes after 96 hours (5760 min)
@@ -359,6 +358,10 @@ func showBarGraphAndPayments(serviceAmount float64) {
 			normalMinutes = 96 * 60
 			extraMinutes = totalPayMinutes - normalMinutes
 		}
+
+		// Convert minutes to hours for display
+		normalHours := float64(normalMinutes) / 60.0
+		extraHours := float64(extraMinutes) / 60.0
 
 		rate := employeeRates[colaborador]
 		normalPay := float64(normalMinutes) * rate / 60
@@ -384,6 +387,9 @@ func showBarGraphAndPayments(serviceAmount float64) {
 			proportionalService = (float64(serviceMinutes) / float64(totalMinutesWorkedAll)) * serviceAmount
 		}
 		totalPayment := workedPay + vacationPay + proportionalService - ccss
+
+		fmt.Printf("  Tiempo normal: %.2f h | Monto normal: $%.2f\n", normalHours, normalPay)
+		fmt.Printf("  Tiempo extra:  %.2f h | Monto extra:  $%.2f\n", extraHours, extraPay)
 
 		if vacDays > 0 {
 			fmt.Printf("  Monto por días trabajados: $%.2f\n", workedPay)
