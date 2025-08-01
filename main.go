@@ -18,22 +18,24 @@ type Record struct {
 }
 
 type Employee struct {
-	Name string
-	Rate float64
-	CCSS float64
+	Name         string
+	Rate         float64
+	CCSS         float64
+	VacationDays int // Add this field
+
 }
 
 // Define employees with their rates and CCSS deductions
 var employees = []Employee{
-	{Name: "Dani", Rate: 1800, CCSS: 10000},
-	{Name: "Nayi", Rate: 3125, CCSS: 10000},
-	{Name: "Vero", Rate: 1300, CCSS: 0},
-	{Name: "Leidy", Rate: 2000, CCSS: 0},
-	{Name: "Jose", Rate: 2000, CCSS: 0},
-	{Name: "Graciela", Rate: 1800, CCSS: 0},
-	{Name: "Ana", Rate: 1800, CCSS: 0},
-	{Name: "Tatiana", Rate: 1800, CCSS: 0},
-	{Name: "Angelica", Rate: 1800, CCSS: 0},
+	{Name: "Dani", Rate: 1800, CCSS: 10000, VacationDays: 9},
+	{Name: "Nayi", Rate: 3125, CCSS: 10000, VacationDays: 0},
+	{Name: "Vero", Rate: 1300, CCSS: 0, VacationDays: 0},
+	{Name: "Leidy", Rate: 2000, CCSS: 0, VacationDays: 0},
+	{Name: "Jose Mario", Rate: 2000, CCSS: 0, VacationDays: 0},
+	{Name: "Graciela", Rate: 1800, CCSS: 0, VacationDays: 0},
+	{Name: "Ana", Rate: 1800, CCSS: 0, VacationDays: 0},
+	{Name: "Tatiana", Rate: 1800, CCSS: 0, VacationDays: 0},
+	{Name: "Angélica", Rate: 1800, CCSS: 0, VacationDays: 0},
 }
 
 // Helper maps for quick lookup
@@ -85,8 +87,7 @@ func main() {
 
 	fmt.Printf("Total a pagar para todos los archivos: $%.2f\n", overallTotalPayment)
 
-	// Show bar graph of hours per worker per day
-	showBarGraph()
+	showBarGraphAndPayments(serviceAmount)
 }
 
 // New: Map to store break minutes per worker per day
@@ -270,15 +271,54 @@ func calculatePayment(totalWorkMinutes int, colaborador string, isHoliday int) f
 	return float64(totalWorkMinutes) * hourlyPay
 }
 
-// Show a simple ASCII bar graph of hours per worker per day, including entry/exit and next entry/exit for the same day
+// ...existing code...
 
 // ...existing code...
 
-func showBarGraph() {
-	fmt.Println("\nResumen de horas trabajadas y descansos por día (por colaborador):")
+// Add vacation days per employee (map of employee name to number of vacation days)
+var vacationDays = map[string]int{
+	// Example:
+	// "Ana": 2,
+	"Dani": 9,
+	// Add more as needed
+}
+
+// ...existing code...
+
+func showBarGraphAndPayments(serviceAmount float64) {
+	fmt.Println("\nResumen de horas trabajadas, descansos y pagos por colaborador (ordenados):")
+	fmt.Printf("Monto total de servicio a repartir: $%.2f\n", serviceAmount)
 	fmt.Println("-------------------------------------------------------------------")
-	for colaborador, days := range hoursPerWorkerPerDay {
+
+	// Get sorted list of employee names
+	var employeeNames []string
+	for name := range hoursPerWorkerPerDay {
+		employeeNames = append(employeeNames, name)
+	}
+	sort.Strings(employeeNames)
+
+	// Calculate total minutes worked by all employees (excluding vacation days)
+	totalMinutesWorkedAll := 0
+	for _, emp := range employeeNames {
+		empObj := getEmployeeByName(emp)
+		vacDays := 0
+		if empObj != nil {
+			vacDays = empObj.VacationDays
+		}
+		vacMinutes := vacDays * 8 * 60
+		empMinutes := 0
+		for _, mins := range hoursPerWorkerPerDay[emp] {
+			empMinutes += int(mins * 60)
+		}
+		if empMinutes < vacMinutes {
+			vacMinutes = empMinutes // Prevent negative
+		}
+		totalMinutesWorkedAll += empMinutes - vacMinutes
+	}
+
+	for _, colaborador := range employeeNames {
 		fmt.Printf("%s:\n", colaborador)
+		days := hoursPerWorkerPerDay[colaborador]
 
 		// Sort the dates for this worker
 		var dates []string
@@ -287,36 +327,99 @@ func showBarGraph() {
 		}
 		sort.Strings(dates)
 
+		totalHours := 0.0
+		totalBreak := 0.0
+		totalMinutes := 0
+
 		for _, date := range dates {
 			hours := days[date]
 			breakMin := breaksPerWorkerPerDay[colaborador][date]
-			// bar := strings.Repeat("█", int(hours+0.5)) // 1 block per hour
+			totalHours += hours
+			totalBreak += breakMin
+			totalMinutes += int(hours * 60)
 
 			// Get sessions for this worker and date
 			sessions := sessionsFor(colaborador, date)
-			// ...existing code...
 			sessionStr := ""
 			if len(sessions) > 0 {
-				// First entry and exit
 				sessionStr += fmt.Sprintf("Entrada: %s | Salida: %s", sessions[0].entry.Format("03:04 PM"), sessions[0].exit.Format("03:04 PM"))
 				for i := 1; i < len(sessions); i++ {
-					// Break between previous exit and current entry
 					// breakDuration := sessions[i].entry.Sub(sessions[i-1].exit)
 					// breakMin := int(breakDuration.Minutes())
 					// if breakMin > 0 {
-					// 	// sessionStr += fmt.Sprintf(" | Descanso: %d min", breakMin)
+					// 	sessionStr += fmt.Sprintf(" | Descanso: %d min", breakMin)
 					// }
-					// Next entry and exit
 					sessionStr += fmt.Sprintf(" | Entrada: %s | Salida: %s", sessions[i].entry.Format("03:04 PM"), sessions[i].exit.Format("03:04 PM"))
 				}
 			}
-			// ...existing code...
 
-			fmt.Printf("  %s | %5.2f h  | Descanso total: %2.0f min | %s\n", date, hours, breakMin, sessionStr)
+			fmt.Printf("  %s | %6.2f h  | Descanso total: %2.0f min | %s\n", date, hours, breakMin, sessionStr)
 		}
-		fmt.Println()
+
+		// Vacation calculation
+		// Vacation calculation
+		empObj := getEmployeeByName(colaborador)
+		vacDays := 0
+		if empObj != nil {
+			vacDays = empObj.VacationDays
+		}
+		vacHours := float64(vacDays) * 8.0
+		vacMinutes := vacDays * 8 * 60
+
+		fmt.Printf("  TOTAL HORAS: %5.2f h | TOTAL DESCANSO: %.0f min\n", totalHours, totalBreak)
+		if vacDays > 0 {
+			fmt.Printf("  DÍAS DE VACACIONES: %d (%.2f h no cuentan para servicio)\n", vacDays, vacHours)
+		}
+
+		// Payment summary for this employee
+		// Calculate payment for worked minutes and vacation minutes separately
+		baseMinutes := totalMinutes
+		vacationAmount := 0.0
+		if vacDays > 0 {
+			vacationAmount = calculatePayment(vacMinutes, colaborador, 0)
+			baseMinutes += vacMinutes
+		}
+		workedAmount := calculatePayment(totalMinutes, colaborador, 0)
+		ccss := ccssDeductions[colaborador]
+
+		// Service is only for worked minutes (not vacation)
+		serviceMinutes := totalMinutes
+		proportionalService := 0.0
+		if totalMinutesWorkedAll > 0 {
+			proportionalService = (float64(serviceMinutes) / float64(totalMinutesWorkedAll)) * serviceAmount
+		}
+		totalPayment := workedAmount + vacationAmount + proportionalService - ccss
+
+		if vacDays > 0 {
+			fmt.Printf("  Monto por días trabajados: $%.2f\n", workedAmount)
+			fmt.Printf("  Monto por vacaciones:      $%.2f\n", vacationAmount)
+		} else {
+			fmt.Printf("  Monto por días trabajados: $%.2f\n", workedAmount)
+		}
+		fmt.Printf("  Servicio: $%.2f | CCSS: $%.2f | TOTAL: $%.2f\n\n",
+			proportionalService, ccss, totalPayment)
+
 	}
 }
+
+// Helper to get Employee struct by name
+func getEmployeeByName(name string) *Employee {
+	for i := range employees {
+		if employees[i].Name == name {
+			return &employees[i]
+		}
+	}
+	return nil
+}
+
+// ...existing code...
+
+// ...existing code...
+
+// In main(), replace the calls to printPaymentSummary and showBarGraph with:
+// showBarGraphAndPayments(serviceAmount)
+
+// ...existing code...
 
 // ...existing code...
 
