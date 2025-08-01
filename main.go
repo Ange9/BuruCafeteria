@@ -161,8 +161,8 @@ func processFile(filename string, serviceAmount float64) error {
 
 			payment := calculatePayment(totalWorkDayMinutes, colaborador, isHoliday)
 
-			fmt.Printf("Archivo: %s, Nombre: %s, Fecha: %s, Pago: $%.2f, Holiday: %b\n",
-				filename, colaborador, entryTime.Format("2006-01-02"), payment, isHoliday)
+			// fmt.Printf("Archivo: %s, Nombre: %s, Fecha: %s, Pago: $%.2f, Holiday: %b\n",
+			// 	filename, colaborador, entryTime.Format("2006-01-02"), payment, isHoliday)
 
 			personWorkData[colaborador] += totalWorkDayMinutes
 			personPaymentData[colaborador] += payment
@@ -199,7 +199,7 @@ func processFile(filename string, serviceAmount float64) error {
 	for colaborador, totalWorkMinutes := range personWorkData {
 		basePayment := personPaymentData[colaborador]
 		totalHours := totalWorkMinutes / 60
-		totalMinutes := totalWorkMinutes % 60
+		// totalMinutes := totalWorkMinutes % 60
 
 		proportionalService := 0.0
 		if totalMinutesWorkedAll > 0 {
@@ -208,15 +208,15 @@ func processFile(filename string, serviceAmount float64) error {
 
 		ccss := ccssDeductions[colaborador]
 
-		fmt.Println("------------------------------------------------------------------------")
-		fmt.Printf("Archivo: %s, Nombre: %s\n", filename, colaborador)
-		fmt.Printf("Total tiempo laborado: %dh %dm\n", totalHours, totalMinutes)
-		fmt.Printf("Subtotal: $%.2f\n", basePayment)
-		fmt.Printf("+ Servicio: $%.2f\n", proportionalService)
-		fmt.Printf("- CCSS: $%.2f\n", ccss)
+		// fmt.Println("------------------------------------------------------------------------")
+		// fmt.Printf("Archivo: %s, Nombre: %s\n", filename, colaborador)
+		// fmt.Printf("Total tiempo laborado: %dh %dm\n", totalHours, totalMinutes)
+		// fmt.Printf("Subtotal: $%.2f\n", basePayment)
+		// fmt.Printf("+ Servicio: $%.2f\n", proportionalService)
+		// fmt.Printf("- CCSS: $%.2f\n", ccss)
 
 		totalPayment := basePayment + proportionalService - ccss
-		fmt.Printf("Total a pagar: $%.2f\n", totalPayment)
+		// fmt.Printf("Total a pagar: $%.2f\n", totalPayment)
 
 		overallTotalPayment += totalPayment
 		totalTiempoLaboradoAll += totalHours
@@ -250,7 +250,7 @@ func parseTotalTimeToMinutes(total string) (int, error) {
 		}
 	}
 
-	fmt.Printf("Parsing Time: %s = %d hours, %d minutes\n", total, hours, minutes)
+	// fmt.Printf("Parsing Time: %s = %d hours, %d minutes\n", total, hours, minutes)
 	return hours*60 + minutes, nil
 }
 
