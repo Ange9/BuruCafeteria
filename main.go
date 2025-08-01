@@ -208,15 +208,7 @@ func processFile(filename string, serviceAmount float64) error {
 
 		ccss := ccssDeductions[colaborador]
 
-		// fmt.Println("------------------------------------------------------------------------")
-		// fmt.Printf("Archivo: %s, Nombre: %s\n", filename, colaborador)
-		// fmt.Printf("Total tiempo laborado: %dh %dm\n", totalHours, totalMinutes)
-		// fmt.Printf("Subtotal: $%.2f\n", basePayment)
-		// fmt.Printf("+ Servicio: $%.2f\n", proportionalService)
-		// fmt.Printf("- CCSS: $%.2f\n", ccss)
-
 		totalPayment := basePayment + proportionalService - ccss
-		// fmt.Printf("Total a pagar: $%.2f\n", totalPayment)
 
 		overallTotalPayment += totalPayment
 		totalTiempoLaboradoAll += totalHours
@@ -270,20 +262,6 @@ func calculatePayment(totalWorkMinutes int, colaborador string, isHoliday int) f
 	}
 	return float64(totalWorkMinutes) * hourlyPay
 }
-
-// ...existing code...
-
-// ...existing code...
-
-// Add vacation days per employee (map of employee name to number of vacation days)
-var vacationDays = map[string]int{
-	// Example:
-	// "Ana": 2,
-	"Dani": 9,
-	// Add more as needed
-}
-
-// ...existing code...
 
 func showBarGraphAndPayments(serviceAmount float64) {
 	fmt.Println("\nResumen de horas trabajadas, descansos y pagos por colaborador (ordenados):")
@@ -344,11 +322,7 @@ func showBarGraphAndPayments(serviceAmount float64) {
 			if len(sessions) > 0 {
 				sessionStr += fmt.Sprintf("Entrada: %s | Salida: %s", sessions[0].entry.Format("03:04 PM"), sessions[0].exit.Format("03:04 PM"))
 				for i := 1; i < len(sessions); i++ {
-					// breakDuration := sessions[i].entry.Sub(sessions[i-1].exit)
-					// breakMin := int(breakDuration.Minutes())
-					// if breakMin > 0 {
-					// 	sessionStr += fmt.Sprintf(" | Descanso: %d min", breakMin)
-					// }
+
 					sessionStr += fmt.Sprintf(" | Entrada: %s | Salida: %s", sessions[i].entry.Format("03:04 PM"), sessions[i].exit.Format("03:04 PM"))
 				}
 			}
@@ -411,17 +385,6 @@ func getEmployeeByName(name string) *Employee {
 	}
 	return nil
 }
-
-// ...existing code...
-
-// ...existing code...
-
-// In main(), replace the calls to printPaymentSummary and showBarGraph with:
-// showBarGraphAndPayments(serviceAmount)
-
-// ...existing code...
-
-// ...existing code...
 
 // Helper to get sessions for a worker and date
 func sessionsFor(worker, date string) []struct{ entry, exit time.Time } {
