@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -48,6 +49,9 @@ func init() {
 
 var overallTotalPayment float64 // Global variable to track total payment across all files
 
+// New: Map to store hours per worker per day
+var hoursPerWorkerPerDay = make(map[string]map[string]float64)
+
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("Uso: go run main.go <monto_servicio>")
@@ -80,7 +84,23 @@ func main() {
 	}
 
 	fmt.Printf("Total a pagar para todos los archivos: $%.2f\n", overallTotalPayment)
+
+	// Show bar graph of hours per worker per day
+	showBarGraph()
 }
+
+// New: Map to store break minutes per worker per day
+var breaksPerWorkerPerDay = make(map[string]map[string]float64)
+
+// For break calculation between sessions
+type session struct {
+	entry time.Time
+	exit  time.Time
+	mins  int
+}
+
+// Map: worker -> date -> []session
+var sessionsPerWorkerPerDay = make(map[string]map[string][]session)
 
 func processFile(filename string, serviceAmount float64) error {
 	file, err := os.Open(filename)
@@ -106,8 +126,9 @@ func processFile(filename string, serviceAmount float64) error {
 			if i == 0 {
 				continue
 			}
-			colaborador := row[0]
+			colaborador := strings.TrimSpace(row[0])
 			entryTime, _ := time.Parse("2/1/2006 15:04", row[1])
+			exitTime, _ := time.Parse("2/1/2006 15:04", row[2])
 			formattedDate := entryTime.Format("2006-01-02")
 			total := row[3]
 
@@ -116,6 +137,21 @@ func processFile(filename string, serviceAmount float64) error {
 				fmt.Println("Error parsing total time:", err)
 				continue
 			}
+
+			// Store session for break calculation
+			if _, ok := sessionsPerWorkerPerDay[colaborador]; !ok {
+				sessionsPerWorkerPerDay[colaborador] = make(map[string][]session)
+			}
+			sessionsPerWorkerPerDay[colaborador][formattedDate] = append(
+				sessionsPerWorkerPerDay[colaborador][formattedDate],
+				session{entry: entryTime, exit: exitTime, mins: totalWorkDayMinutes},
+			)
+
+			// Store hours per worker per day
+			if _, ok := hoursPerWorkerPerDay[colaborador]; !ok {
+				hoursPerWorkerPerDay[colaborador] = make(map[string]float64)
+			}
+			hoursPerWorkerPerDay[colaborador][formattedDate] += float64(totalWorkDayMinutes) / 60.0
 
 			isHoliday := 0
 			if formattedDate == "2025-07-25" {
@@ -129,6 +165,28 @@ func processFile(filename string, serviceAmount float64) error {
 
 			personWorkData[colaborador] += totalWorkDayMinutes
 			personPaymentData[colaborador] += payment
+		}
+	}
+
+	// Calculate breaks between sessions per worker per day
+	for colaborador, days := range sessionsPerWorkerPerDay {
+		if _, ok := breaksPerWorkerPerDay[colaborador]; !ok {
+			breaksPerWorkerPerDay[colaborador] = make(map[string]float64)
+		}
+		for date, sessions := range days {
+			// Sort sessions by entry time
+			sort.Slice(sessions, func(i, j int) bool {
+				return sessions[i].entry.Before(sessions[j].entry)
+			})
+			breakMinutes := 0.0
+			for i := 1; i < len(sessions); i++ {
+				// Break is time between previous exit and current entry
+				breakMin := sessions[i].entry.Sub(sessions[i-1].exit).Minutes()
+				if breakMin > 0 {
+					breakMinutes += breakMin
+				}
+			}
+			breaksPerWorkerPerDay[colaborador][date] = breakMinutes
 		}
 	}
 
@@ -210,4 +268,64 @@ func calculatePayment(totalWorkMinutes int, colaborador string, isHoliday int) f
 		return 8*60*hourlyPay + float64(extraMinutes)*extraTimePay
 	}
 	return float64(totalWorkMinutes) * hourlyPay
+}
+
+// Show a simple ASCII bar graph of hours per worker per day, including entry/exit and next entry/exit for the same day
+
+func showBarGraph() {
+	fmt.Println("\nResumen de horas trabajadas y descansos por día (por colaborador):")
+	fmt.Println("-------------------------------------------------------------------")
+	for colaborador, days := range hoursPerWorkerPerDay {
+		fmt.Printf("%s:\n", colaborador)
+
+		// Sort the dates for this worker
+		var dates []string
+		for date := range days {
+			dates = append(dates, date)
+		}
+		sort.Strings(dates)
+
+		for _, date := range dates {
+			hours := days[date]
+			breakMin := breaksPerWorkerPerDay[colaborador][date]
+			bar := strings.Repeat("█", int(hours+0.5)) // 1 block per hour
+
+			// Get sessions for this worker and date
+			sessions := sessionsFor(colaborador, date)
+			sessionStrs := []string{}
+			for i, s := range sessions {
+				// If only one session, print it
+				if len(sessions) == 1 {
+					entry := s.entry.Format("03:04 PM")
+					exit := s.exit.Format("03:04 PM")
+					sessionStrs = append(sessionStrs, fmt.Sprintf("Entry: %s Exit: %s", entry, exit))
+				} else if i < len(sessions)-1 {
+					// For all but the last session, print with next entry/exit
+					entry := s.entry.Format("03:04 PM")
+					exit := s.exit.Format("03:04 PM")
+					nextEntry := sessions[i+1].entry.Format("03:04 PM")
+					nextExit := sessions[i+1].exit.Format("03:04 PM")
+					sessionStrs = append(sessionStrs, fmt.Sprintf("Entrada: %s Salida: %s | Entrada: %s Salida: %s", entry, exit, nextEntry, nextExit))
+				}
+				// Do not print the last session again
+			}
+			sessionsJoined := strings.Join(sessionStrs, " || ")
+
+			fmt.Printf("  %s | %5.2f h | %s | Descanso: %2.0f min | %s\n", date, hours, bar, breakMin, sessionsJoined)
+		}
+		fmt.Println()
+	}
+}
+
+// Helper to get sessions for a worker and date
+func sessionsFor(worker, date string) []struct{ entry, exit time.Time } {
+	sessions := []struct{ entry, exit time.Time }{}
+	if workerSessions, ok := sessionsPerWorkerPerDay[worker]; ok {
+		if daySessions, ok := workerSessions[date]; ok {
+			for _, s := range daySessions {
+				sessions = append(sessions, struct{ entry, exit time.Time }{s.entry, s.exit})
+			}
+		}
+	}
+	return sessions
 }
