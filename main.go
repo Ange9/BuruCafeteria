@@ -184,11 +184,14 @@ func processFileWithHolidays(filename string, serviceAmount float64, holidays []
 			}
 			hoursPerWorkerPerDay[colaborador][formattedDate] += float64(totalWorkDayMinutes) / 60.0
 
+			// fmt.Printf("Comparing work date %s with holidays: %v\n", formattedDate, holidays)
 			// Check if this date is a holiday
 			isHoliday := 0
 			for _, h := range holidays {
 				if formattedDate == h {
 					isHoliday = 1
+					fmt.Printf("Date %s is a holiday\n", formattedDate)
+
 					break
 				}
 			}
@@ -279,17 +282,22 @@ func parseTotalTimeToMinutes(total string) (int, error) {
 func calculatePayment(totalWorkMinutes int, colaborador string, isHoliday int) float64 {
 	rate := employeeRates[colaborador]
 	hourlyPay := rate / 60
-	extraTimePay := hourlyPay
+	// extraTimePay := hourlyPay
+	fmt.Println("rate:", rate, "hourlyPay:", hourlyPay)
 
 	if isHoliday == 1 {
+		fmt.Println("Calculating payment for holiday")
 		hourlyPay = (rate * 2) / 60
-		extraTimePay = 1.5 * hourlyPay
+		// extraTimePay = 1.5 * hourlyPay
 	}
 
-	if totalWorkMinutes > 8*60 {
-		extraMinutes := totalWorkMinutes - 8*60
-		return 8*60*hourlyPay + float64(extraMinutes)*extraTimePay
-	}
+	// If total work minutes exceed 8 hours, calculate extra time
+	// if totalWorkMinutes > 8*60 {
+	// 	fmt.Printf("Calculating payment for %s: %d minutes at $%.2f/hour (extra time)\n", colaborador, totalWorkMinutes, hourlyPay)
+	// 	extraMinutes := totalWorkMinutes - 8*60
+	// 	return 8*60*hourlyPay + float64(extraMinutes)*extraTimePay
+	// }
+	fmt.Printf("Calculating payment for %s: %d minutes at $%.2f/hour\n", colaborador, totalWorkMinutes, hourlyPay)
 	return float64(totalWorkMinutes) * hourlyPay
 }
 
