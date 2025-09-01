@@ -28,8 +28,8 @@ type Employee struct {
 
 // Define employees with their rates and CCSS deductions
 var employees = []Employee{
-	{Name: "Dani", Rate: 1800, CCSS: 10000, VacationDays: 0},
-	{Name: "Nayi", Rate: 3125, CCSS: 10000, VacationDays: 0},
+	{Name: "Dani", Rate: 1800, CCSS: 0, VacationDays: 0},
+	{Name: "Nayi", Rate: 3125, CCSS: 0, VacationDays: 0},
 	{Name: "Vero", Rate: 1300, CCSS: 0, VacationDays: 0},
 	{Name: "Leidy", Rate: 2000, CCSS: 0, VacationDays: 0},
 	{Name: "Jose Mario", Rate: 2000, CCSS: 0, VacationDays: 0},
@@ -282,22 +282,15 @@ func parseTotalTimeToMinutes(total string) (int, error) {
 func calculatePayment(totalWorkMinutes int, colaborador string, isHoliday int) float64 {
 	rate := employeeRates[colaborador]
 	hourlyPay := rate / 60
-	// extraTimePay := hourlyPay
-	fmt.Println("rate:", rate, "hourlyPay:", hourlyPay)
 
 	if isHoliday == 1 {
 		fmt.Println("Calculating payment for holiday")
-		hourlyPay = (rate * 2) / 60
-		// extraTimePay = 1.5 * hourlyPay
+		hourlyPay = (rate * 2) / 60 // 2x rate per hour, divided by 60 for per minute
+		fmt.Printf("Holiday rate for %s: $%.2f/hour\n", colaborador, hourlyPay)
 	}
 
-	// If total work minutes exceed 8 hours, calculate extra time
-	// if totalWorkMinutes > 8*60 {
-	// 	fmt.Printf("Calculating payment for %s: %d minutes at $%.2f/hour (extra time)\n", colaborador, totalWorkMinutes, hourlyPay)
-	// 	extraMinutes := totalWorkMinutes - 8*60
-	// 	return 8*60*hourlyPay + float64(extraMinutes)*extraTimePay
-	// }
 	fmt.Printf("Calculating payment for %s: %d minutes at $%.2f/hour\n", colaborador, totalWorkMinutes, hourlyPay)
+
 	return float64(totalWorkMinutes) * hourlyPay
 }
 
@@ -369,7 +362,7 @@ func showBarGraphAndPayments(serviceAmount float64) {
 				}
 			}
 
-			fmt.Printf("  %s | %6.2f h  | Descanso total: %2.0f min | %s\n", date, hours, breakMin, sessionStr)
+			fmt.Printf("  %s | %6.2f h  | Descanso total: %2.0f min | %s\n", date, hours, breakMin, "")
 		}
 
 		// Vacation calculation
