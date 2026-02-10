@@ -28,15 +28,17 @@ type Employee struct {
 
 // Define employees with their rates and CCSS deductions
 var employees = []Employee{
-	{Name: "Dani", Rate: 1800, CCSS: 0, VacationDays: 0},
+	{Name: "Nayi1", Rate: 2000, CCSS: 10000, VacationDays: 0},
 	{Name: "Nayi", Rate: 3125, CCSS: 0, VacationDays: 0},
 	{Name: "Vero", Rate: 1300, CCSS: 0, VacationDays: 0},
-	{Name: "Leidy", Rate: 2000, CCSS: 0, VacationDays: 0},
+	{Name: "Leidy", Rate: 2000, CCSS: (-27395 / 2), VacationDays: 0},
 	{Name: "Jose Mario", Rate: 2000, CCSS: 0, VacationDays: 0},
 	{Name: "Graciela", Rate: 1800, CCSS: 0, VacationDays: 0},
 	{Name: "Ana", Rate: 1800, CCSS: 0, VacationDays: 0},
 	{Name: "Tatiana", Rate: 1800, CCSS: 0, VacationDays: 0},
 	{Name: "Angélica", Rate: 1800, CCSS: 0, VacationDays: 0},
+	{Name: "Luis", Rate: 2000, CCSS: 0, VacationDays: 0},
+	{Name: "Tania", Rate: 1800, CCSS: 0, VacationDays: 0},
 }
 
 // Helper maps for quick lookup
@@ -384,7 +386,7 @@ func showBarGraphAndPayments(serviceAmount float64) {
 		// Only worked minutes count towards extra time (vacation is always paid at normal rate)
 		workedNormalMinutes := totalMinutes
 		workedExtraMinutes := 0
-		if totalMinutes > 96*60 {
+		if totalMinutes > 96*600 {
 			workedNormalMinutes = 96 * 60
 			workedExtraMinutes = totalMinutes - workedNormalMinutes
 		}
@@ -394,11 +396,11 @@ func showBarGraphAndPayments(serviceAmount float64) {
 
 		// Convert minutes to hours for display
 		normalHours := float64(workedNormalMinutes+vacationNormalMinutes) / 60.0
-		extraHours := float64(workedExtraMinutes) / 60.0
+		// extraHours := float64(workedExtraMinutes) / 60.0
 
 		rate := employeeRates[colaborador]
 		normalPay := float64(workedNormalMinutes+vacationNormalMinutes) * rate / 60
-		extraPay := float64(workedExtraMinutes) * rate / 60 * 1.5
+		// extraPay := float64(workedExtraMinutes) * rate / 60 * 1.5
 
 		// Split worked and vacation amounts for display
 		workedPay := float64(workedNormalMinutes)*rate/60 + float64(workedExtraMinutes)*rate/60*1.5
@@ -421,7 +423,7 @@ func showBarGraphAndPayments(serviceAmount float64) {
 			fmt.Printf("  Monto por días trabajados: $%.2f\n", workedPay)
 		}
 		fmt.Printf("  Tiempo normal: %.2f h | Monto normal: $%.2f\n", normalHours, normalPay)
-		fmt.Printf("  Tiempo extra:  %.2f h | Monto extra:  $%.2f\n", extraHours, extraPay)
+		// fmt.Printf("  Tiempo extra:  %.2f h | Monto extra:  $%.2f\n", extraHours, extraPay)
 		fmt.Printf("  Servicio: $%.2f | CCSS: $%.2f | TOTAL: $%.2f\n\n",
 			proportionalService, ccss, totalPayment)
 	}
