@@ -28,8 +28,8 @@ type Employee struct {
 
 // Define employees with their rates and CCSS deductions
 var employees = []Employee{
-	{Name: "Nayi1", Rate: 2000, CCSS: 0, VacationDays: 0},
-	{Name: "Nayi", Rate: 3125, CCSS: 0, VacationDays: 0},
+	{Name: "Nayi2", Rate: 2000, CCSS: 0, VacationDays: 0},
+	{Name: "Nayi", Rate: 3125, CCSS: 10000, VacationDays: 0},
 	{Name: "Vero", Rate: 1300, CCSS: 0, VacationDays: 0},
 	{Name: "Leidy", Rate: 2000, CCSS: (-27395 / 2), VacationDays: 1},
 	{Name: "Jose Mario", Rate: 2000, CCSS: 0, VacationDays: 0},
@@ -53,6 +53,17 @@ func init() {
 }
 
 var overallTotalPayment float64 // Global variable to track total payment across all files
+
+// Aggregated data across processed files
+var basePaymentPerWorker = make(map[string]float64)
+var workedMinutesPerWorker = make(map[string]int)
+var holidayPayPerWorker = make(map[string]float64)
+var holidayMinutesPerWorker = make(map[string]int)
+var holidayDatesPerWorker = make(map[string]map[string]bool)
+var workedHolidayDates = make(map[string]bool)
+var unworkedHolidayPayPerWorker = make(map[string]float64)
+var unworkedHolidayShiftsPerWorker = make(map[string]int)
+var unworkedHolidayDatesPerWorker = make(map[string]map[string]int)
 
 // New: Map to store hours per worker per day
 var hoursPerWorkerPerDay = make(map[string]map[string]float64)
@@ -81,7 +92,12 @@ func main() {
 		holidaysStr = strings.TrimSpace(holidaysStr)
 		if holidaysStr != "" {
 			for _, h := range strings.Split(holidaysStr, ",") {
-				holidays = append(holidays, strings.TrimSpace(h))
+				normalized, err := normalizeHolidayDate(h)
+				if err != nil {
+					fmt.Printf("Formato de feriado inválido: %q (use YYYY-MM-DD o DD/MM/YYYY)\n", strings.TrimSpace(h))
+					continue
+				}
+				holidays = append(holidays, normalized)
 			}
 		}
 	}
@@ -117,6 +133,48 @@ func main() {
 		}
 	}
 
+	unworkedHolidays := findUnworkedHolidays(holidays)
+	if len(unworkedHolidays) > 0 {
+		fmt.Println("\nFeriados no laborados detectados (sin marcas en reloj):")
+		for _, holiday := range unworkedHolidays {
+			fmt.Printf("  - %s\n", holiday)
+		}
+
+		fmt.Println("\nSeleccione colaboradores a pagar en cada feriado no laborado (8 horas a tarifa normal):")
+		for i, emp := range employees {
+			fmt.Printf("  %2d. %s\n", i+1, emp.Name)
+		}
+
+		for _, holiday := range unworkedHolidays {
+			fmt.Printf("Para el feriado %s, ingrese números de empleados separados por coma (o Enter para ninguno): ", holiday)
+			selStr, _ := reader.ReadString('\n')
+			selStr = strings.TrimSpace(selStr)
+			if selStr == "" {
+				continue
+			}
+
+			for _, part := range strings.Split(selStr, ",") {
+				idx, err := strconv.Atoi(strings.TrimSpace(part))
+				if err != nil || idx < 1 || idx > len(employees) {
+					continue
+				}
+				emp := employees[idx-1]
+				rate := employeeRates[emp.Name]
+				unworkedHolidayPayPerWorker[emp.Name] += rate * 8
+				unworkedHolidayShiftsPerWorker[emp.Name]++
+				if unworkedHolidayDatesPerWorker[emp.Name] == nil {
+					unworkedHolidayDatesPerWorker[emp.Name] = make(map[string]int)
+				}
+				unworkedHolidayDatesPerWorker[emp.Name][holiday]++
+			}
+		}
+	}
+
+	// Add unworked holiday pay to overall total
+	for _, pay := range unworkedHolidayPayPerWorker {
+		overallTotalPayment += pay
+	}
+
 	fmt.Printf("Total a pagar para todos los archivos: $%.2f\n", overallTotalPayment)
 
 	showBarGraphAndPayments(serviceAmount)
@@ -149,6 +207,11 @@ func processFileWithHolidays(filename string, serviceAmount float64, holidays []
 		return fmt.Errorf("error reading CSV: %w", err)
 	}
 
+	holidaySet := make(map[string]struct{}, len(holidays))
+	for _, h := range holidays {
+		holidaySet[h] = struct{}{}
+	}
+
 	personWorkData := make(map[string]int)
 	personPaymentData := make(map[string]float64)
 
@@ -160,8 +223,16 @@ func processFileWithHolidays(filename string, serviceAmount float64, holidays []
 				continue
 			}
 			colaborador := strings.TrimSpace(row[0])
-			entryTime, _ := time.Parse("2/1/2006 15:04", row[1])
-			exitTime, _ := time.Parse("2/1/2006 15:04", row[2])
+			entryTime, err := parseWorkDateTime(row[1])
+			if err != nil {
+				fmt.Printf("No se pudo parsear hora entrada %q en fila %d: %v\n", row[1], i+1, err)
+				continue
+			}
+			exitTime, err := parseWorkDateTime(row[2])
+			if err != nil {
+				fmt.Printf("No se pudo parsear hora salida %q en fila %d: %v\n", row[2], i+1, err)
+				continue
+			}
 			formattedDate := entryTime.Format("2006-01-02")
 			total := row[3]
 
@@ -186,19 +257,24 @@ func processFileWithHolidays(filename string, serviceAmount float64, holidays []
 			}
 			hoursPerWorkerPerDay[colaborador][formattedDate] += float64(totalWorkDayMinutes) / 60.0
 
-			// fmt.Printf("Comparing work date %s with holidays: %v\n", formattedDate, holidays)
 			// Check if this date is a holiday
 			isHoliday := 0
-			for _, h := range holidays {
-				if formattedDate == h {
-					isHoliday = 1
-					fmt.Printf("Date %s is a holiday\n", formattedDate)
-
-					break
-				}
+			if _, ok := holidaySet[formattedDate]; ok {
+				isHoliday = 1
 			}
 
 			payment := calculatePayment(totalWorkDayMinutes, colaborador, isHoliday)
+
+			// Track holiday extra pay (the additional 1x premium only) and minutes separately
+			if isHoliday == 1 {
+				workedHolidayDates[formattedDate] = true
+				holidayPayPerWorker[colaborador] += payment / 2 // only the extra premium
+				holidayMinutesPerWorker[colaborador] += totalWorkDayMinutes
+				if holidayDatesPerWorker[colaborador] == nil {
+					holidayDatesPerWorker[colaborador] = make(map[string]bool)
+				}
+				holidayDatesPerWorker[colaborador][formattedDate] = true
+			}
 
 			personWorkData[colaborador] += totalWorkDayMinutes
 			personPaymentData[colaborador] += payment
@@ -245,12 +321,43 @@ func processFileWithHolidays(filename string, serviceAmount float64, holidays []
 
 		totalPayment := basePayment + proportionalService - ccss
 
+		basePaymentPerWorker[colaborador] += basePayment
+		workedMinutesPerWorker[colaborador] += totalWorkMinutes
 		overallTotalPayment += totalPayment
 		totalTiempoLaboradoAll += totalHours
 	}
 
 	fmt.Printf("Total Tiempo Laborado All %dh\n", totalTiempoLaboradoAll)
 	return nil
+}
+
+func normalizeHolidayDate(raw string) (string, error) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return "", fmt.Errorf("empty holiday date")
+	}
+
+	layouts := []string{"2006-01-02", "2/1/2006", "02/01/2006"}
+	for _, layout := range layouts {
+		if parsed, err := time.Parse(layout, value); err == nil {
+			return parsed.Format("2006-01-02"), nil
+		}
+	}
+
+	return "", fmt.Errorf("invalid holiday date format")
+}
+
+func parseWorkDateTime(raw string) (time.Time, error) {
+	value := strings.TrimSpace(raw)
+	layouts := []string{"2/1/2006 15:04", "02/01/2006 15:04", "2/1/2006 15:04:05", "02/01/2006 15:04:05"}
+
+	for _, layout := range layouts {
+		if parsed, err := time.Parse(layout, value); err == nil {
+			return parsed, nil
+		}
+	}
+
+	return time.Time{}, fmt.Errorf("invalid datetime format")
 }
 
 func parseTotalTimeToMinutes(total string) (int, error) {
@@ -286,12 +393,8 @@ func calculatePayment(totalWorkMinutes int, colaborador string, isHoliday int) f
 	hourlyPay := rate / 60
 
 	if isHoliday == 1 {
-		fmt.Println("Calculating payment for holiday")
 		hourlyPay = (rate * 2) / 60 // 2x rate per hour, divided by 60 for per minute
-		fmt.Printf("Holiday rate for %s: $%.2f/hour\n", colaborador, hourlyPay)
 	}
-
-	fmt.Printf("Calculating payment for %s: %d minutes at $%.2f/hour\n", colaborador, totalWorkMinutes, hourlyPay)
 
 	return float64(totalWorkMinutes) * hourlyPay
 }
@@ -301,9 +404,16 @@ func showBarGraphAndPayments(serviceAmount float64) {
 	fmt.Printf("Monto total de servicio a repartir: $%.2f\n", serviceAmount)
 	fmt.Println("-------------------------------------------------------------------")
 
-	// Get sorted list of employee names
+	// Get sorted list of employee names (worked hours + any unworked holiday pay)
 	var employeeNames []string
+	nameSet := make(map[string]struct{})
 	for name := range hoursPerWorkerPerDay {
+		nameSet[name] = struct{}{}
+	}
+	for name := range unworkedHolidayPayPerWorker {
+		nameSet[name] = struct{}{}
+	}
+	for name := range nameSet {
 		employeeNames = append(employeeNames, name)
 	}
 	sort.Strings(employeeNames)
@@ -349,22 +459,12 @@ func showBarGraphAndPayments(serviceAmount float64) {
 			totalBreak += breakMin
 			totalMinutes += int(hours * 60)
 
-			// Get sessions for this worker and date
-			sessions := sessionsFor(colaborador, date)
-			sessionStr := ""
-			if len(sessions) > 0 {
-				sessionStr += fmt.Sprintf("Entrada: %s | Salida: %s", sessions[0].entry.Format("03:04 PM"), sessions[0].exit.Format("03:04 PM"))
-				for i := 1; i < len(sessions); i++ {
-					breakDuration := sessions[i].entry.Sub(sessions[i-1].exit)
-					breakMin := int(breakDuration.Minutes())
-					if breakMin > 0 {
-						sessionStr += fmt.Sprintf(" | Descanso: %d min", breakMin)
-					}
-					sessionStr += fmt.Sprintf(" | Entrada: %s | Salida: %s", sessions[i].entry.Format("03:04 PM"), sessions[i].exit.Format("03:04 PM"))
-				}
+			holidayMarker := ""
+			if holidayDatesPerWorker[colaborador][date] {
+				holidayMarker = " [FERIADO]"
 			}
 
-			fmt.Printf("  %s | %6.2f h  | Descanso total: %2.0f min | %s\n", date, hours, breakMin, "")
+			fmt.Printf("  %s | %6.2f h  | Descanso total: %2.0f min%s\n", date, hours, breakMin, holidayMarker)
 		}
 
 		// Vacation calculation
@@ -382,48 +482,57 @@ func showBarGraphAndPayments(serviceAmount float64) {
 		}
 
 		// Payment summary for this employee
+		rate := employeeRates[colaborador]
+		vacationPay := float64(vacMinutes) * rate / 60
 
-		// Only worked minutes count towards extra time (vacation is always paid at normal rate)
-		workedNormalMinutes := totalMinutes
-		workedExtraMinutes := 0
-		if totalMinutes > 96*600 {
-			workedNormalMinutes = 96 * 60
-			workedExtraMinutes = totalMinutes - workedNormalMinutes
+		workedPay, ok := basePaymentPerWorker[colaborador]
+		if !ok {
+			workedPay = float64(totalMinutes-vacMinutes) * rate / 60
+			if workedPay < 0 {
+				workedPay = 0
+			}
 		}
 
-		// Vacation minutes are always normal rate
-		vacationNormalMinutes := vacMinutes
-
-		// Convert minutes to hours for display
-		normalHours := float64(workedNormalMinutes+vacationNormalMinutes) / 60.0
-		// extraHours := float64(workedExtraMinutes) / 60.0
-
-		rate := employeeRates[colaborador]
-		normalPay := float64(workedNormalMinutes+vacationNormalMinutes) * rate / 60
-		// extraPay := float64(workedExtraMinutes) * rate / 60 * 1.5
-
-		// Split worked and vacation amounts for display
-		workedPay := float64(workedNormalMinutes)*rate/60 + float64(workedExtraMinutes)*rate/60*1.5
-		vacationPay := float64(vacationNormalMinutes) * rate / 60
-
+		normalHours := float64(totalMinutes) / 60.0
+		basePay := workedPay + vacationPay
 		ccss := ccssDeductions[colaborador]
 
 		// Service is only for worked minutes (not vacation)
-		serviceMinutes := totalMinutes
+		serviceMinutes := totalMinutes - vacMinutes
+		if serviceMinutes < 0 {
+			serviceMinutes = 0
+		}
 		proportionalService := 0.0
 		if totalMinutesWorkedAll > 0 {
 			proportionalService = (float64(serviceMinutes) / float64(totalMinutesWorkedAll)) * serviceAmount
 		}
-		totalPayment := workedPay + vacationPay + proportionalService - ccss
+		totalPayment := basePay + proportionalService - ccss
+
+		holidayExtraPay := holidayPayPerWorker[colaborador]
+		holidayMins := holidayMinutesPerWorker[colaborador]
+		// normalWorkedPay includes holiday hours at normal rate; holidayExtraPay is only the extra premium
+		normalWorkedPay := workedPay - holidayExtraPay
 
 		if vacDays > 0 {
-			fmt.Printf("  Monto por días trabajados: $%.2f\n", workedPay)
-			fmt.Printf("  Monto por vacaciones:      $%.2f\n", vacationPay)
+			fmt.Printf("  Monto h. normales:      $%.2f\n", normalWorkedPay)
+			fmt.Printf("  Monto vacaciones:       $%.2f\n", vacationPay)
 		} else {
-			fmt.Printf("  Monto por días trabajados: $%.2f\n", workedPay)
+			fmt.Printf("  Monto h. normales:      $%.2f\n", normalWorkedPay)
 		}
-		fmt.Printf("  Tiempo normal: %.2f h | Monto normal: $%.2f\n", normalHours, normalPay)
-		// fmt.Printf("  Tiempo extra:  %.2f h | Monto extra:  $%.2f\n", extraHours, extraPay)
+		if holidayMins > 0 {
+			fmt.Printf("  Recargo feriados:       $%.2f  (%.2f h x tarifa extra)\n", holidayExtraPay, float64(holidayMins)/60.0)
+		}
+		if unworkedPay := unworkedHolidayPayPerWorker[colaborador]; unworkedPay > 0 {
+			shifts := unworkedHolidayShiftsPerWorker[colaborador]
+			fmt.Printf("  Feriado no laborado:    $%.2f  (%d turno(s) de 8 h)\n", unworkedPay, shifts)
+			detail := formatUnworkedHolidayDetail(colaborador)
+			if detail != "" {
+				fmt.Printf("  FERIADO no laborado:   %s\n", detail)
+			}
+			basePay += unworkedPay
+			totalPayment += unworkedPay
+		}
+		fmt.Printf("  Tiempo pagado: %.2f h | Monto base: $%.2f\n", normalHours, basePay)
 		fmt.Printf("  Servicio: $%.2f | CCSS: $%.2f | TOTAL: $%.2f\n\n",
 			proportionalService, ccss, totalPayment)
 	}
@@ -436,6 +545,47 @@ func getEmployeeByName(name string) *Employee {
 		}
 	}
 	return nil
+}
+
+func findUnworkedHolidays(holidays []string) []string {
+	seen := make(map[string]bool)
+	var unworked []string
+	for _, holiday := range holidays {
+		if seen[holiday] {
+			continue
+		}
+		seen[holiday] = true
+		if !workedHolidayDates[holiday] {
+			unworked = append(unworked, holiday)
+		}
+	}
+	sort.Strings(unworked)
+	return unworked
+}
+
+func formatUnworkedHolidayDetail(worker string) string {
+	dateCounts, ok := unworkedHolidayDatesPerWorker[worker]
+	if !ok || len(dateCounts) == 0 {
+		return ""
+	}
+
+	var dates []string
+	for date := range dateCounts {
+		dates = append(dates, date)
+	}
+	sort.Strings(dates)
+
+	parts := make([]string, 0, len(dates))
+	for _, date := range dates {
+		count := dateCounts[date]
+		if count > 1 {
+			parts = append(parts, fmt.Sprintf("%s x%d", date, count))
+			continue
+		}
+		parts = append(parts, date)
+	}
+
+	return strings.Join(parts, ", ")
 }
 
 // Helper to get sessions for a worker and date
