@@ -29,16 +29,17 @@ type Employee struct {
 // Define employees with their rates and CCSS deductions
 var employees = []Employee{
 	{Name: "Nayi2", Rate: 2000, CCSS: 0, VacationDays: 0},
-	{Name: "Nayi", Rate: 3125, CCSS: 10000, VacationDays: 0},
-	{Name: "Vero", Rate: 1300, CCSS: 0, VacationDays: 0},
-	{Name: "Leidy", Rate: 2000, CCSS: (-27395 / 2), VacationDays: 1},
+	{Name: "Nayi", Rate: 3125, CCSS: 0, VacationDays: 0},
+	{Name: "Vero", Rate: 2000, CCSS: 0, VacationDays: 0},
+	{Name: "Leidy", Rate: 2000, CCSS: (-27395 / 2), VacationDays: 0},
 	{Name: "Jose Mario", Rate: 2000, CCSS: 0, VacationDays: 0},
-	{Name: "Graciela", Rate: 1800, CCSS: 0, VacationDays: 0},
-	{Name: "Ana", Rate: 1800, CCSS: 0, VacationDays: 0},
+	{Name: "Graciela", Rate: 2000, CCSS: 0, VacationDays: 0},
+	{Name: "Ana", Rate: 2000, CCSS: 0, VacationDays: 0},
 	{Name: "Tatiana", Rate: 1800, CCSS: 0, VacationDays: 0},
 	{Name: "Angélica", Rate: 1800, CCSS: 0, VacationDays: 0},
 	{Name: "Luis", Rate: 2000, CCSS: 0, VacationDays: 0},
-	{Name: "Tania", Rate: 1800, CCSS: 0, VacationDays: 0},
+	{Name: "Richard", Rate: 2000, CCSS: 0, VacationDays: 0},
+	{Name: "Clark Vargas", Rate: 2000, CCSS: 0, VacationDays: 0},
 }
 
 // Helper maps for quick lookup
